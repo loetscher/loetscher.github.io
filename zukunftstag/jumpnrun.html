@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="JumpNRun-Spiel – in Vorbereitung.">
+    <meta name="description" content="Laufe mit deiner Figur über die JumpNRun-Strecke.">
     <title>JumpNRun | Zukunftstag</title>
     <link rel="stylesheet" href="game-navigation.css">
+    <script src="jumpnrun.js" defer></script>
     <style>
         :root {
             color-scheme: light;
@@ -28,7 +29,7 @@
         }
 
         .game-card {
-            width: min(100%, 28rem);
+            width: min(100%, 38rem);
             padding: clamp(1.5rem, 6vw, 2.5rem);
             text-align: center;
             background: #fff;
@@ -52,17 +53,90 @@
         }
 
         .instructions {
-            margin: 0.75rem 0 0;
+            margin: 0.75rem 0 1.25rem;
             color: #64748b;
         }
 
-        .preparation-status {
-            margin: 1.5rem 0 0;
+        .runner-stage {
+            position: relative;
+            width: 100%;
+            height: clamp(12rem, 45vw, 18rem);
+            overflow: hidden;
             border-radius: 1rem;
-            padding: 1rem;
-            background: #eff6ff;
-            color: #1e40af;
+            background: linear-gradient(#bae6fd 0%, #dbeafe 72%, #bbf7d0 72%, #86efac 100%);
+            touch-action: none;
+        }
+
+        .ground {
+            position: absolute;
+            right: 0;
+            bottom: 1.5rem;
+            left: 0;
+            height: 0.4rem;
+            background: #15803d;
+        }
+
+        .runner {
+            position: absolute;
+            bottom: 1.8rem;
+            left: 0;
+            width: 3rem;
+            height: 3.5rem;
+            font-size: 3rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .runner.is-running {
+            animation: run-bob 180ms ease-in-out infinite alternate;
+        }
+
+        @keyframes run-bob {
+            to {
+                translate: 0 -0.2rem;
+            }
+        }
+
+        .movement-status {
+            min-height: 1.5rem;
+            margin: 0.75rem 0;
+            color: #334155;
             font-weight: 700;
+        }
+
+        .movement-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .movement-controls button {
+            min-width: 7rem;
+            border: 0;
+            border-radius: 999px;
+            padding: 0.8rem 1rem;
+            background: #1d4ed8;
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .movement-controls button:hover {
+            background: #1e40af;
+        }
+
+        .movement-controls button:focus-visible {
+            outline: 3px solid #f59e0b;
+            outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .runner.is-running {
+                animation: none;
+            }
         }
     </style>
 </head>
@@ -74,8 +148,16 @@
         </nav>
         <p class="eyebrow">Zukunftstag</p>
         <h1>JumpNRun</h1>
-        <p class="instructions">Hier entsteht ein neues Spiel.</p>
-        <p class="preparation-status" role="status">JumpNRun ist noch in Vorbereitung und noch nicht spielbar.</p>
+        <p class="instructions">Laufe mit den Pfeiltasten oder A und D. Auf dem Handy kannst du die Richtungstasten gedrückt halten.</p>
+        <div id="runner-stage" class="runner-stage" role="group" aria-label="Laufstrecke">
+            <div class="ground" aria-hidden="true"></div>
+            <div id="runner" class="runner" aria-hidden="true">🏃</div>
+        </div>
+        <p id="movement-status" class="movement-status" role="status" aria-live="polite">Bereit zum Laufen.</p>
+        <div class="movement-controls" aria-label="Laufsteuerung">
+            <button type="button" data-direction="left" aria-label="Nach links laufen">← Links</button>
+            <button type="button" data-direction="right" aria-label="Nach rechts laufen">Rechts →</button>
+        </div>
     </main>
 </body>
 </html>
