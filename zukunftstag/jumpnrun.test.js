@@ -3,6 +3,10 @@ const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
 
+const page = fs.readFileSync('zukunftstag/jumpnrun.html', 'utf8');
+const gameScript = page.match(/<script src="(jumpnrun[^"?]*\.js)(?:\?[^"]*)?" defer><\/script>/);
+assert.ok(gameScript, 'The game page must load a JumpNRun script');
+
 class Element {
     constructor({ width = 0, height = 0, dataset = {}, tagName = '' } = {}) {
         this.width = width;
@@ -120,7 +124,7 @@ function createGame({
         querySelectorAll: selector => selector === '[data-obstacle]' ? obstacles : buttons
     };
 
-    vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun_abcd.js', 'utf8'), {
+    vm.runInNewContext(fs.readFileSync(`zukunftstag/${gameScript[1]}`, 'utf8'), {
         document,
         Math: gameMath,
         window: windowElement,
@@ -167,9 +171,7 @@ function obstaclePosition(obstacle) {
 }
 
 test('the game page provides the score display expected by the game script', () => {
-    const page = fs.readFileSync('zukunftstag/jumpnrun.html', 'utf8');
-
-    assert.match(page, /<script src="jumpnrun_abc\.js\?v=[^"]+" defer><\/script>/);
+    assert.match(page, /<script src="jumpnrun[^"?]*\.js\?v=[^"]+" defer><\/script>/);
     assert.match(page, /<span id="score">0<\/span>/);
 });
 
