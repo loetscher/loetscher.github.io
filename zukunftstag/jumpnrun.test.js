@@ -55,20 +55,27 @@ class Element {
     }
 }
 
-function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 40, runnerHeight = 56 } = {}) {
+function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 48, runnerHeight = 56 } = {}) {
     const stage = new Element({ width: stageWidth, height: stageHeight });
+    const ground = new Element();
+    stage.querySelector = selector => selector === '.ground' ? ground : null;
     const runner = new Element({ width: runnerWidth, height: runnerHeight });
     const status = new Element();
     const buttons = [
         new Element({ dataset: { direction: 'left' } }),
-        new Element({ dataset: { direction: 'right' } }),
         new Element({ dataset: { direction: 'up' } }),
-        new Element({ dataset: { direction: 'down' } })
+        new Element({ dataset: { direction: 'right' } })
     ];
+    const obstacles = [new Element({ width: 28 }), new Element({ width: 28 }), new Element({ width: 28 })];
+    obstacles.forEach(obstacle => {
+        obstacle.dataset.obstacle = '';
+    });
+    const restart = new Element();
     const elements = {
         'runner-stage': stage,
         runner,
-        'movement-status': status
+        'movement-status': status,
+        'restart-game': restart
     };
     const documentListeners = new Map();
     const windowElement = new Element();
@@ -100,7 +107,7 @@ function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 40, run
             return event;
         },
         getElementById: id => elements[id],
-        querySelectorAll: () => buttons
+        querySelectorAll: selector => selector === '[data-obstacle]' ? obstacles : buttons
     };
 
     vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun.js', 'utf8'), {
@@ -119,157 +126,148 @@ function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 40, run
         runner,
         status,
         buttons,
+        obstacles,
+        restart,
         document,
         windowElement,
         frames,
+        currentTime: 0,
         runFrame(timestamp) {
             const [frameId, callback] = frames.entries().next().value || [];
             if (callback) {
                 frames.delete(frameId);
+                this.currentTime = timestamp;
                 callback(timestamp);
             }
         }
     };
 }
 
-function runAtFrameRate(game, framesPerSecond) {
-    const interval = 1000 / framesPerSecond;
-    game.document.dispatch('keydown', { key: 'd', target: new Element() });
-    for (let frame = 0; frame <= framesPerSecond; frame += 1) {
-        game.runFrame(frame * interval);
+function advance(game, duration, interval = 50) {
+    const frames = Math.round(duration / interval);
+    for (let frame = 0; frame < frames; frame += 1) {
+        game.runFrame(game.currentTime + interval);
     }
-    game.document.dispatch('keyup', { key: 'd' });
-    return Number.parseFloat(game.runner.style.left);
 }
 
-test('keyboard movement is held, prevents scrolling, and stops on key release', () => {
-    const game = createGame();
-    const press = game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
+function obstaclePosition(obstacle) {
+    return Number.parseFloat(obstacle.style.left);
+}
 
+test('the world scrolls and obstacles move toward the runner', () => {
+    const game = createGame();
+    game.runFrame(0);
+    game.runFrame(100);
+    assert.equal(obstaclePosition(game.obstacles[0]), 420);
+    assert.equal(game.runner.style.top, '106px');
+    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
+});
+
+test('world speed stays consistent at different animation frame rates', () => {
+    const gameAt30Fps = createGame();
+    const gameAt60Fps = createGame();
+    gameAt30Fps.runFrame(0);
+    gameAt60Fps.runFrame(0);
+    advance(gameAt30Fps, 1000, 1000 / 30);
+    advance(gameAt60Fps, 1000, 1000 / 60);
+
+    assert.ok(Math.abs(obstaclePosition(gameAt30Fps.obstacles[0]) - obstaclePosition(gameAt60Fps.obstacles[0])) < 0.001);
+    assert.ok(Math.abs(obstaclePosition(gameAt60Fps.obstacles[0]) - 240) < 0.001);
+});
+
+test('left and right controls move the runner, while jump keys launch an arc', () => {
+    const game = createGame();
+    const rightPress = game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
+    assert.equal(rightPress.defaultPrevented, true);
+    game.runFrame(0);
+    game.runFrame(100);
+    assert.ok(Math.abs(Number.parseFloat(game.runner.style.left) - 56) < 0.001);
+
+    game.document.dispatch('keyup', { key: 'ArrowRight' });
+    const jumpPress = game.document.dispatch('keydown', { key: ' ', target: new Element() });
+    assert.equal(jumpPress.defaultPrevented, true);
+    game.runFrame(200);
+    game.runFrame(300);
+    assert.ok(Number.parseFloat(game.runner.style.top) < 106);
+    assert.equal(game.status.textContent, 'Springt über ein Hindernis!');
+});
+
+test('a jump clears a passing obstacle and the runner lands again', () => {
+    const game = createGame();
+    game.runFrame(0);
+    advance(game, 1650);
+    assert.ok(obstaclePosition(game.obstacles[0]) < 140);
+    game.document.dispatch('keydown', { key: 'ArrowUp', target: new Element() });
+    game.document.dispatch('keyup', { key: 'ArrowUp' });
+    advance(game, 900, 25);
+
+    assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+    assert.equal(game.runner.style.top, '106px');
+    assert.ok(obstaclePosition(game.obstacles[0]) > game.stage.width);
+});
+
+test('a missed jump causes a collision, stops the game, and restart resets it', () => {
+    const game = createGame();
+    game.runFrame(0);
+    for (let timestamp = 50; timestamp <= 5000 && !game.status.textContent.startsWith('Autsch!'); timestamp += 50) {
+        game.runFrame(timestamp);
+    }
+    assert.equal(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+    assert.equal(game.frames.size, 0);
+
+    game.restart.dispatch('click');
+    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
+    assert.equal(game.runner.style.left, '32px');
+    assert.equal(game.runner.style.top, '106px');
+    assert.equal(obstaclePosition(game.obstacles[0]), 440);
+    assert.equal(game.frames.size, 1);
+});
+
+test('the jump button works, but editable targets do not control the game', () => {
+    const game = createGame();
+    const ignoredKey = game.document.dispatch('keydown', { key: 'w', target: new Element({ tagName: 'INPUT' }) });
+    assert.equal(ignoredKey.defaultPrevented, false);
+
+    const jumpButton = game.buttons.find(button => button.dataset.direction === 'up');
+    const press = jumpButton.dispatch('pointerdown', { pointerId: 7, button: 0 });
     assert.equal(press.defaultPrevented, true);
     game.runFrame(0);
     game.runFrame(100);
-    assert.equal(game.runner.style.left, '24px');
-
-    game.document.dispatch('keyup', { key: 'ArrowRight' });
-    assert.equal(game.frames.size, 0);
-    assert.equal(game.status.textContent, 'Bereit zum Laufen.');
+    assert.ok(Number.parseFloat(game.runner.style.top) < 106);
+    jumpButton.dispatch('pointerup', { pointerId: 7 });
 });
 
-test('movement distance is consistent at different animation frame rates', () => {
-    const distanceAt30Fps = runAtFrameRate(createGame(), 30);
-    const distanceAt60Fps = runAtFrameRate(createGame(), 60);
-
-    assert.ok(Math.abs(distanceAt30Fps - distanceAt60Fps) < 0.001);
-    assert.ok(Math.abs(distanceAt60Fps - 240) < 0.001);
-});
-
-test('opposite simultaneous inputs cancel, then the remaining direction moves', () => {
-    const game = createGame();
-    game.document.dispatch('keydown', { key: 'a', target: new Element() });
-    game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
-    assert.equal(game.status.textContent, 'Steht still.');
-    game.runFrame(0);
-    game.runFrame(100);
-    assert.equal(game.runner.style.left, '0px');
-
-    game.document.dispatch('keyup', { key: 'a' });
-    game.runFrame(200);
-    assert.equal(game.runner.style.left, '24px');
-});
-
-test('up and down keys move vertically and clamp at both stage edges', () => {
-    const game = createGame();
-    game.document.dispatch('keydown', { key: 'w', target: new Element() });
-    game.runFrame(0);
-    game.runFrame(100);
-    assert.equal(Number.parseFloat(game.runner.style.top), 83.2);
-    assert.equal(game.status.textContent, 'Läuft nach oben.');
-
-    for (let timestamp = 200; timestamp <= 1200; timestamp += 100) {
-        game.runFrame(timestamp);
-    }
-    assert.equal(game.runner.style.top, '0px');
-
-    game.document.dispatch('keyup', { key: 'w' });
-    game.document.dispatch('keydown', { key: 'ArrowDown', target: new Element() });
-    for (let timestamp = 1300; timestamp <= 2300; timestamp += 100) {
-        game.runFrame(timestamp);
-    }
-    assert.equal(game.runner.style.top, '136px');
-    game.document.dispatch('keyup', { key: 'ArrowDown' });
-});
-
-test('diagonal movement is normalized and opposite vertical inputs cancel', () => {
-    const game = createGame();
-    game.document.dispatch('keydown', { key: 'd', target: new Element() });
-    game.document.dispatch('keydown', { key: 'w', target: new Element() });
-    game.runFrame(0);
-    game.runFrame(100);
-    assert.ok(Math.abs(Number.parseFloat(game.runner.style.left) - 16.9705627485) < 0.001);
-    assert.ok(Math.abs(Number.parseFloat(game.runner.style.top) - (107.2 - 16.9705627485)) < 0.001);
-    assert.equal(game.status.textContent, 'Läuft diagonal nach oben rechts.');
-
-    game.document.dispatch('keydown', { key: 's', target: new Element() });
-    const topBeforeVerticalCancellation = Number.parseFloat(game.runner.style.top);
-    game.runFrame(200);
-    assert.ok(Number.parseFloat(game.runner.style.left) > 16.97);
-    assert.equal(Number.parseFloat(game.runner.style.top), topBeforeVerticalCancellation);
-    assert.equal(game.status.textContent, 'Läuft nach rechts.');
-});
-
-test('movement stays inside the stage and is clamped after resizing', () => {
-    const game = createGame({ stageWidth: 200, runnerWidth: 40 });
+test('the runner stays in the stage, clamps after resizing, and pauses on focus loss', () => {
+    const game = createGame({ stageWidth: 200 });
     game.document.dispatch('keydown', { key: 'ArrowLeft', target: new Element() });
-    for (let timestamp = 0; timestamp <= 1000; timestamp += 100) {
+    for (let timestamp = 0; timestamp <= 500; timestamp += 100) {
         game.runFrame(timestamp);
     }
     assert.equal(game.runner.style.left, '0px');
     game.document.dispatch('keyup', { key: 'ArrowLeft' });
 
-    game.document.dispatch('keydown', { key: 'd', target: new Element() });
-    for (let timestamp = 0; timestamp <= 2000; timestamp += 100) {
-        game.runFrame(timestamp);
-    }
-    assert.equal(game.runner.style.left, '160px');
+    const narrowGame = createGame();
+    narrowGame.stage.width = 50;
+    narrowGame.windowElement.dispatch('resize');
+    assert.equal(narrowGame.runner.style.left, '2px');
 
     game.stage.width = 80;
-    game.stage.height = 80;
+    game.stage.height = 120;
     game.windowElement.dispatch('resize');
-    assert.equal(game.runner.style.left, '40px');
-    assert.equal(game.runner.style.top, '24px');
-});
-
-test('direction buttons run while pressed and stop on pointer cancellation', () => {
-    const game = createGame();
-    const downButton = game.buttons.find(button => button.dataset.direction === 'down');
-    const down = downButton.dispatch('pointerdown', { pointerId: 7, button: 0 });
-    assert.equal(down.defaultPrevented, true);
-    assert.equal(downButton.capturedPointer, 7);
-    game.runFrame(0);
-    game.runFrame(100);
-    assert.equal(game.runner.style.top, '131.2px');
-
-    downButton.dispatch('pointercancel', { pointerId: 7 });
-    assert.equal(game.frames.size, 0);
-    assert.equal(game.status.textContent, 'Bereit zum Laufen.');
-});
-
-test('editable text targets are ignored and focus or page loss stops movement', () => {
-    const game = createGame();
-    const textInput = new Element({ tagName: 'INPUT' });
-    const ignoredKey = game.document.dispatch('keydown', { key: 'd', target: textInput });
-    assert.equal(ignoredKey.defaultPrevented, false);
-    assert.equal(game.frames.size, 0);
-
-    game.document.dispatch('keydown', { key: 'd', target: new Element() });
+    assert.equal(game.runner.style.left, '0px');
+    assert.equal(game.runner.style.top, '34px');
     game.windowElement.dispatch('blur');
+    assert.equal(game.status.textContent, 'Pausiert. Klicke ins Fenster, um weiterzuspielen.');
     assert.equal(game.frames.size, 0);
-    assert.equal(game.status.textContent, 'Bereit zum Laufen.');
+    game.windowElement.dispatch('focus');
+    assert.equal(game.frames.size, 1);
+    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
 
-    game.document.dispatch('keydown', { key: 'a', target: new Element() });
     game.document.hidden = true;
     game.document.dispatch('visibilitychange');
     assert.equal(game.frames.size, 0);
-    assert.equal(game.status.textContent, 'Bereit zum Laufen.');
+    assert.equal(game.status.textContent, 'Pausiert. Klicke ins Fenster, um weiterzuspielen.');
+    game.document.hidden = false;
+    game.document.dispatch('visibilitychange');
+    assert.equal(game.frames.size, 1);
 });

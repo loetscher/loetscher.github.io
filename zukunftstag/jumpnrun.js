@@ -1,15 +1,90 @@
 document.addEventListener('DOMContentLoaded', () => {
     const stage = document.getElementById('runner-stage');
     const runner = document.getElementById('runner');
+    const ground = stage.querySelector('.ground');
     const status = document.getElementById('movement-status');
     const movementButtons = Array.from(document.querySelectorAll('[data-direction]'));
+    const obstacleElements = Array.from(document.querySelectorAll('[data-obstacle]'));
+    const restartButton = document.getElementById('restart-game');
     const activeSources = new Map();
-    const speed = 240;
+    const horizontalSpeed = 240;
+    const worldSpeed = 200;
+    const gravity = 1300;
+    const jumpVelocity = -500;
+    const obstacleWidth = 28;
+    const obstacleHeight = 34;
+    const floorHeight = 6;
+    const floorBottom = 24;
+    const frameStep = 1 / 60;
+    const baseStatus = 'Die Strecke läuft. Springe über die Hindernisse!';
 
-    let position = 0;
+    let position = 32;
     let verticalPosition = 0;
+    let verticalVelocity = 0;
+    let worldOffset = 0;
+    let obstaclePositions = [];
     let previousTimestamp = null;
     let animationFrame = null;
+    let gameOver = false;
+    let isPaused = false;
+
+    function stageHeight() {
+        return stage.getBoundingClientRect().height;
+    }
+
+    function stageWidth() {
+        return stage.getBoundingClientRect().width;
+    }
+
+    function groundPosition() {
+        return Math.max(0, stageHeight() - floorBottom - floorHeight - runner.getBoundingClientRect().height);
+    }
+
+    function maxPosition() {
+        return Math.max(0, stageWidth() - runner.getBoundingClientRect().width);
+    }
+
+    function horizontalDirection() {
+        let direction = 0;
+        activeSources.forEach(value => {
+            direction += value === 'right' ? 1 : -1;
+        });
+        return Math.sign(direction);
+    }
+
+    function renderPosition() {
+        position = Math.max(0, Math.min(position, maxPosition()));
+        verticalPosition = Math.max(0, Math.min(verticalPosition, groundPosition()));
+        runner.style.left = `${position}px`;
+        runner.style.top = `${verticalPosition}px`;
+    }
+
+    function renderObstacles() {
+        obstaclePositions.forEach((worldPosition, index) => {
+            obstacleElements[index].style.left = `${worldPosition - worldOffset}px`;
+        });
+        ground.style.backgroundPositionX = `${-(worldOffset % 38.4)}px`;
+    }
+
+    function renderStatus() {
+        let message = baseStatus;
+        if (gameOver) {
+            message = 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.';
+        } else if (isPaused) {
+            message = 'Pausiert. Klicke ins Fenster, um weiterzuspielen.';
+        } else if (verticalVelocity < 0 || verticalPosition < groundPosition()) {
+            message = 'Springt über ein Hindernis!';
+        }
+        if (status.textContent !== message) {
+            status.textContent = message;
+        }
+    }
+
+    function isEditableTarget(target) {
+        return target?.isContentEditable
+            || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
+            || Boolean(target?.closest?.('[contenteditable="true"]'));
+    }
 
     function directionFromKey(key) {
         const normalizedKey = key.toLowerCase();
@@ -19,131 +94,167 @@ document.addEventListener('DOMContentLoaded', () => {
         if (normalizedKey === 'arrowright' || normalizedKey === 'd') {
             return 'right';
         }
-        if (normalizedKey === 'arrowup' || normalizedKey === 'w') {
-            return 'up';
-        }
-        if (normalizedKey === 'arrowdown' || normalizedKey === 's') {
-            return 'down';
-        }
         return null;
     }
 
-    function getMovementVector() {
-        let horizontal = 0;
-        let vertical = 0;
-        activeSources.forEach(direction => {
-            if (direction === 'left') {
-                horizontal -= 1;
-            } else if (direction === 'right') {
-                horizontal += 1;
-            } else if (direction === 'up') {
-                vertical -= 1;
-            } else if (direction === 'down') {
-                vertical += 1;
-            }
-        });
-        return { x: Math.sign(horizontal), y: Math.sign(vertical) };
-    }
-
-    function maxPosition() {
-        return Math.max(0, stage.getBoundingClientRect().width - runner.getBoundingClientRect().width);
-    }
-
-    function maxVerticalPosition() {
-        return Math.max(0, stage.getBoundingClientRect().height - runner.getBoundingClientRect().height);
-    }
-
-    function renderPosition() {
-        position = Math.max(0, Math.min(position, maxPosition()));
-        verticalPosition = Math.max(0, Math.min(verticalPosition, maxVerticalPosition()));
-        runner.style.left = `${position}px`;
-        runner.style.top = `${verticalPosition}px`;
-    }
-
-    function renderMovementState() {
-        const { x, y } = getMovementVector();
-        if (x === 0 && y === 0) {
-            status.textContent = activeSources.size > 0 ? 'Steht still.' : 'Bereit zum Laufen.';
-            return;
-        }
-
-        if (x !== 0 && y !== 0) {
-            const vertical = y < 0 ? 'oben' : 'unten';
-            const horizontal = x < 0 ? 'links' : 'rechts';
-            status.textContent = `Läuft diagonal nach ${vertical} ${horizontal}.`;
-        } else {
-            const direction = x < 0 ? 'links' : x > 0 ? 'rechts' : y < 0 ? 'oben' : 'unten';
-            status.textContent = `Läuft nach ${direction}.`;
-        }
-    }
-
-    function requestMovementFrame() {
-        if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(animate);
-        }
-    }
-
-    function animate(timestamp) {
-        animationFrame = null;
-        if (activeSources.size === 0) {
-            previousTimestamp = null;
-            return;
-        }
-
-        const movement = getMovementVector();
-        if ((movement.x !== 0 || movement.y !== 0) && previousTimestamp !== null) {
-            const elapsedSeconds = Math.max(0, (timestamp - previousTimestamp) / 1000);
-            const diagonalScale = movement.x !== 0 && movement.y !== 0 ? Math.SQRT1_2 : 1;
-            position += movement.x * speed * elapsedSeconds * diagonalScale;
-            verticalPosition += movement.y * speed * elapsedSeconds * diagonalScale;
-            renderPosition();
-        }
-        previousTimestamp = timestamp;
-        requestMovementFrame();
-    }
-
-    function startSource(source, direction) {
-        activeSources.set(source, direction);
-        renderMovementState();
-        requestMovementFrame();
-    }
-
-    function stopSource(source) {
-        activeSources.delete(source);
-        renderMovementState();
-        if (activeSources.size === 0) {
-            previousTimestamp = null;
-            if (animationFrame !== null) {
-                cancelAnimationFrame(animationFrame);
-                animationFrame = null;
-            }
-        }
-    }
-
-    function clearMovement() {
-        activeSources.clear();
-        previousTimestamp = null;
+    function stopAnimation() {
         if (animationFrame !== null) {
             cancelAnimationFrame(animationFrame);
             animationFrame = null;
         }
-        renderMovementState();
+        previousTimestamp = null;
     }
 
-    function isEditableTarget(target) {
-        return target?.isContentEditable
-            || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
-            || Boolean(target?.closest?.('[contenteditable="true"]'));
+    function requestGameFrame() {
+        if (animationFrame === null && !gameOver && !isPaused) {
+            animationFrame = requestAnimationFrame(animate);
+        }
     }
 
-    document.addEventListener('keydown', event => {
-        const direction = directionFromKey(event.key);
-        if (!direction || isEditableTarget(event.target)) {
+    function finishGame() {
+        gameOver = true;
+        activeSources.clear();
+        stopAnimation();
+        renderStatus();
+    }
+
+    function checkCollision() {
+        const runnerRight = position + runner.getBoundingClientRect().width;
+        const runnerBottom = verticalPosition + runner.getBoundingClientRect().height;
+        const obstacleTop = stageHeight() - floorBottom - obstacleHeight;
+
+        return obstaclePositions.some(worldPosition => {
+            const obstacleLeft = worldPosition - worldOffset;
+            const overlapsHorizontally = runnerRight > obstacleLeft && position < obstacleLeft + obstacleWidth;
+            const overlapsVertically = runnerBottom > obstacleTop && verticalPosition < stageHeight() - floorBottom;
+            return overlapsHorizontally && overlapsVertically;
+        });
+    }
+
+    function updateWorld(step) {
+        worldOffset += worldSpeed * step;
+        position += horizontalDirection() * horizontalSpeed * step;
+        renderPosition();
+
+        if (verticalVelocity !== 0 || verticalPosition < groundPosition()) {
+            verticalPosition += verticalVelocity * step;
+            verticalVelocity += gravity * step;
+            if (verticalPosition >= groundPosition()) {
+                verticalPosition = groundPosition();
+                verticalVelocity = 0;
+            }
+            renderPosition();
+        }
+
+        obstaclePositions = obstaclePositions.map(worldPosition => {
+            if (worldPosition - worldOffset < -obstacleWidth) {
+                return Math.max(...obstaclePositions) + 260;
+            }
+            return worldPosition;
+        });
+        renderObstacles();
+
+        if (checkCollision()) {
+            finishGame();
+            return false;
+        }
+        return true;
+    }
+
+    function animate(timestamp) {
+        animationFrame = null;
+        if (gameOver || isPaused) {
             return;
         }
 
-        event.preventDefault();
-        startSource(`key:${event.key.toLowerCase()}`, direction);
+        const elapsed = previousTimestamp === null
+            ? 0
+            : Math.min(0.1, Math.max(0, (timestamp - previousTimestamp) / 1000));
+        previousTimestamp = timestamp;
+        let remaining = elapsed;
+        while (remaining > 0) {
+            const step = Math.min(frameStep, remaining);
+            if (!updateWorld(step)) {
+                return;
+            }
+            remaining -= step;
+        }
+        renderStatus();
+        requestGameFrame();
+    }
+
+    function jump() {
+        if (gameOver || isPaused || verticalPosition < groundPosition()) {
+            return;
+        }
+        verticalVelocity = jumpVelocity;
+        renderStatus();
+    }
+
+    function startSource(source, direction) {
+        activeSources.set(source, direction);
+        requestGameFrame();
+    }
+
+    function stopSource(source) {
+        activeSources.delete(source);
+    }
+
+    function pauseGame() {
+        if (gameOver || isPaused) {
+            return;
+        }
+        isPaused = true;
+        activeSources.clear();
+        stopAnimation();
+        renderStatus();
+    }
+
+    function resumeGame() {
+        if (gameOver || !isPaused || document.hidden) {
+            return;
+        }
+        isPaused = false;
+        previousTimestamp = null;
+        renderStatus();
+        requestGameFrame();
+    }
+
+    function startNewGame() {
+        stopAnimation();
+        activeSources.clear();
+        gameOver = false;
+        isPaused = document.hidden;
+        position = Math.min(32, maxPosition());
+        verticalPosition = groundPosition();
+        verticalVelocity = 0;
+        worldOffset = 0;
+        obstaclePositions = obstacleElements.map((obstacle, index) => stageWidth() + 120 + index * 260);
+        renderPosition();
+        renderObstacles();
+        renderStatus();
+        requestGameFrame();
+    }
+
+    document.addEventListener('keydown', event => {
+        if (isEditableTarget(event.target)) {
+            return;
+        }
+
+        const key = event.key.toLowerCase();
+        if (key === ' ' || key === 'arrowup' || key === 'w') {
+            event.preventDefault();
+            if (!event.repeat) {
+                jump();
+            }
+            return;
+        }
+
+        const direction = directionFromKey(key);
+        if (direction) {
+            event.preventDefault();
+            startSource(`key:${key}`, direction);
+        }
     });
 
     document.addEventListener('keyup', event => {
@@ -159,6 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             event.preventDefault();
+            if (direction === 'up') {
+                jump();
+                return;
+            }
             const pointerId = event.pointerId ?? 'primary';
             startSource(`pointer:${pointerId}`, direction);
             if (button.setPointerCapture) {
@@ -177,15 +292,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    window.addEventListener('blur', clearMovement);
-    window.addEventListener('resize', renderPosition);
+    window.addEventListener('blur', pauseGame);
+    window.addEventListener('focus', resumeGame);
+    window.addEventListener('resize', () => {
+        if (verticalPosition > groundPosition()) {
+            verticalPosition = groundPosition();
+            verticalVelocity = 0;
+        }
+        renderPosition();
+        renderObstacles();
+    });
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-            clearMovement();
+            pauseGame();
+        } else {
+            resumeGame();
         }
     });
+    restartButton.addEventListener('click', startNewGame);
 
-    verticalPosition = Math.max(0, maxVerticalPosition() - 28.8);
-    renderPosition();
-    renderMovementState();
+    startNewGame();
 });

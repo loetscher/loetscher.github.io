@@ -73,7 +73,18 @@
             bottom: 1.5rem;
             left: 0;
             height: 0.4rem;
-            background: #15803d;
+            background: repeating-linear-gradient(90deg, #15803d 0 1.2rem, #16a34a 1.2rem 2.4rem);
+            background-position-x: 0;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 1.9rem;
+            width: 1.75rem;
+            height: 2.125rem;
+            border: 2px solid #92400e;
+            border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
+            background: repeating-linear-gradient(135deg, #f97316 0 0.45rem, #fed7aa 0.45rem 0.9rem);
         }
 
         .runner {
@@ -87,6 +98,11 @@
             user-select: none;
         }
 
+        .runner > span {
+            display: inline-block;
+            transform: scaleX(-1);
+        }
+
         .movement-status {
             min-height: 1.5rem;
             margin: 0.75rem 0;
@@ -97,12 +113,13 @@
         .movement-controls {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 5rem));
-            grid-template-rows: repeat(2, 3.5rem);
+            grid-template-rows: 3.5rem;
             justify-content: center;
             gap: 0.5rem;
         }
 
-        .movement-controls button {
+        .movement-controls button,
+        .restart-game {
             min-width: 0;
             border: 0;
             border-radius: 0.75rem;
@@ -116,33 +133,33 @@
             user-select: none;
         }
 
-        .movement-controls [data-direction="up"] {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
         .movement-controls [data-direction="left"] {
             grid-column: 1;
-            grid-row: 2;
         }
 
-        .movement-controls [data-direction="down"] {
+        .movement-controls [data-direction="up"] {
             grid-column: 2;
-            grid-row: 2;
         }
 
         .movement-controls [data-direction="right"] {
             grid-column: 3;
-            grid-row: 2;
         }
 
-        .movement-controls button:hover {
+        .movement-controls button:hover,
+        .restart-game:hover {
             background: #1e40af;
         }
 
-        .movement-controls button:focus-visible {
+        .movement-controls button:focus-visible,
+        .restart-game:focus-visible {
             outline: 3px solid #f59e0b;
             outline-offset: 3px;
+        }
+
+        .restart-game {
+            margin-top: 0.75rem;
+            border-radius: 999px;
+            padding: 0.75rem 1.25rem;
         }
 
     </style>
@@ -155,18 +172,21 @@
         </nav>
         <p class="eyebrow">Zukunftstag</p>
         <h1>JumpNRun</h1>
-        <p class="instructions">Laufe mit den Pfeiltasten oder W, A, S und D. Auf dem Handy kannst du die Richtungstasten gedrückt halten.</p>
+        <p class="instructions">Die Strecke läuft von selbst. Springe mit Leertaste, Pfeil nach oben oder W über Hindernisse. Links und rechts bewegst du die Figur.</p>
         <div id="runner-stage" class="runner-stage" role="group" aria-label="Laufstrecke">
             <div class="ground" aria-hidden="true"></div>
-            <div id="runner" class="runner" aria-hidden="true">🏃</div>
+            <div class="obstacle" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle" data-obstacle aria-hidden="true"></div>
+            <div id="runner" class="runner" aria-hidden="true"><span>🐢</span></div>
         </div>
-        <p id="movement-status" class="movement-status" role="status" aria-live="polite">Bereit zum Laufen.</p>
+        <p id="movement-status" class="movement-status" role="status" aria-live="polite">Die Strecke läuft. Springe über die Hindernisse!</p>
         <div class="movement-controls" role="group" aria-label="Bewegungssteuerung">
-            <button type="button" data-direction="up" aria-label="Nach oben laufen">↑</button>
             <button type="button" data-direction="left" aria-label="Nach links laufen">← Links</button>
-            <button type="button" data-direction="down" aria-label="Nach unten laufen">↓</button>
+            <button type="button" data-direction="up" aria-label="Springen">↑ Springen</button>
             <button type="button" data-direction="right" aria-label="Nach rechts laufen">Rechts →</button>
         </div>
+        <button id="restart-game" class="restart-game" type="button">Neustart</button>
     </main>
 </body>
 </html>
