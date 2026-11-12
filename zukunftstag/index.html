@@ -3,11 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>loetscher.github.io</title>
+    <meta name="description" content="Spiele Tic-Tac-Toe zu zweit.">
+    <title>Tic-Tac-Toe | Zukunftstag</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #172554;
+            background: #eff6ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 1.5rem;
+            background: radial-gradient(circle at top, #dbeafe, #eff6ff 55%);
+        }
+
+        .game-card {
+            width: min(100%, 28rem);
+            padding: clamp(1.5rem, 6vw, 2.5rem);
+            text-align: center;
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-radius: 1.5rem;
+            box-shadow: 0 1.5rem 4rem rgb(30 64 175 / 12%);
+        }
+
+        .eyebrow {
+            margin: 0 0 0.5rem;
+            color: #2563eb;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 8vw, 2.75rem);
+        }
+
+        .instructions {
+            margin: 0.6rem 0 1.5rem;
+            color: #64748b;
+        }
+
+        .player-names {
+            display: grid;
+            gap: 0.75rem;
+            margin: 0 0 1.25rem;
+            text-align: left;
+        }
+
+        .player-name {
+            display: grid;
+            gap: 0.35rem;
+            color: #334155;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .player-name input {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.65rem;
+            padding: 0.7rem 0.8rem;
+            color: inherit;
+            font: inherit;
+            font-weight: 400;
+        }
+
+        #output {
+            min-height: 1.75rem;
+            margin: 0 0 1rem;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.65rem;
+            width: min(100%, 21rem);
+            margin: 0 auto 1.5rem;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            border: 0;
+            border-radius: 1rem;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font: inherit;
+            font-size: clamp(2.5rem, 15vw, 4rem);
+            font-weight: 800;
+            cursor: pointer;
+            transition: background-color 140ms ease, transform 140ms ease;
+        }
+
+        .cell:hover:empty {
+            background: #dbeafe;
+            transform: translateY(-2px);
+        }
+
+        .cell:focus-visible,
+        .player-name input:focus-visible,
+        .restart:focus-visible {
+            outline: 3px solid #f59e0b;
+            outline-offset: 3px;
+        }
+
+        .cell[data-mark="O"] {
+            color: #ea580c;
+        }
+
+        .cell.winner {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .restart {
+            border: 0;
+            border-radius: 999px;
+            padding: 0.8rem 1.35rem;
+            background: #1d4ed8;
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .restart:hover {
+            background: #1e40af;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>loetscher.github.io</h1>
-    <p id="output"></p>
+    <main class="game-card">
+        <p class="eyebrow">Zukunftstag</p>
+        <h1>Tic-Tac-Toe</h1>
+        <p class="instructions">Spielt zu zweit und setzt abwechselnd X und O.</p>
+        <div class="player-names">
+            <label class="player-name" for="player-x-name">
+                Name für X
+                <input id="player-x-name" name="player-x-name" type="text" maxlength="24" placeholder="Spieler X">
+            </label>
+            <label class="player-name" for="player-o-name">
+                Name für O
+                <input id="player-o-name" name="player-o-name" type="text" maxlength="24" placeholder="Spieler O">
+            </label>
+        </div>
+        <p id="output" role="status" aria-live="polite" aria-atomic="true"></p>
+
+        <div class="board" role="group" aria-label="Tic-Tac-Toe-Spielfeld">
+            <button class="cell" type="button" data-cell="0" aria-label="Feld 1, leer"></button>
+            <button class="cell" type="button" data-cell="1" aria-label="Feld 2, leer"></button>
+            <button class="cell" type="button" data-cell="2" aria-label="Feld 3, leer"></button>
+            <button class="cell" type="button" data-cell="3" aria-label="Feld 4, leer"></button>
+            <button class="cell" type="button" data-cell="4" aria-label="Feld 5, leer"></button>
+            <button class="cell" type="button" data-cell="5" aria-label="Feld 6, leer"></button>
+            <button class="cell" type="button" data-cell="6" aria-label="Feld 7, leer"></button>
+            <button class="cell" type="button" data-cell="7" aria-label="Feld 8, leer"></button>
+            <button class="cell" type="button" data-cell="8" aria-label="Feld 9, leer"></button>
+        </div>
+
+        <button class="restart" id="restart" type="button">Neues Spiel</button>
+    </main>
 
     <script src="script.js"></script>
 </body>
