@@ -87,6 +87,12 @@
             background: repeating-linear-gradient(135deg, #f97316 0 0.45rem, #fed7aa 0.45rem 0.9rem);
         }
 
+        .score {
+            margin: 0 0 0.75rem;
+            color: #1d4ed8;
+            font-weight: 700;
+        }
+
         .runner {
             position: absolute;
             top: 0;
@@ -181,10 +187,11 @@
             <div id="runner" class="runner" aria-hidden="true"><span>🐢</span></div>
         </div>
         <p id="movement-status" class="movement-status" role="status" aria-live="polite">Springe über die Hindernisse!</p>
+        <p class="score" role="status" aria-live="polite">Punkte: <span id="score">0</span></p>
         <div class="movement-controls" role="group" aria-label="Bewegungssteuerung">
-            <button type="button" data-direction="left" aria-label="Nach links laufen">← Links</button>
-            <button type="button" data-direction="up" aria-label="Springen">↑ Springen</button>
-            <button type="button" data-direction="right" aria-label="Nach rechts laufen">Rechts →</button>
+            <button type="button" data-direction="left" aria-label="Nach links laufen">←</button>
+            <button type="button" data-direction="up" aria-label="Springen">↑</button>
+            <button type="button" data-direction="right" aria-label="Nach rechts laufen">→</button>
         </div>
         <button id="restart-game" class="restart-game" type="button">Neustart</button>
     </main>

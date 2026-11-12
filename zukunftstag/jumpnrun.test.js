@@ -67,6 +67,7 @@ function createGame({
     stage.querySelector = selector => selector === '.ground' ? ground : null;
     const runner = new Element({ width: runnerWidth, height: runnerHeight });
     const status = new Element();
+    const score = new Element();
     const buttons = [
         new Element({ dataset: { direction: 'left' } }),
         new Element({ dataset: { direction: 'up' } }),
@@ -81,6 +82,7 @@ function createGame({
         'runner-stage': stage,
         runner,
         'movement-status': status,
+        score,
         'restart-game': restart
     };
     const documentListeners = new Map();
@@ -134,6 +136,7 @@ function createGame({
         stage,
         runner,
         status,
+        score,
         buttons,
         obstacles,
         restart,
@@ -163,6 +166,13 @@ function obstaclePosition(obstacle) {
     return Number.parseFloat(obstacle.style.left);
 }
 
+test('the game page provides the score display expected by the game script', () => {
+    const page = fs.readFileSync('zukunftstag/jumpnrun.html', 'utf8');
+
+    assert.match(page, /<script src="jumpnrun_abc\.js" defer><\/script>/);
+    assert.match(page, /<span id="score">0<\/span>/);
+});
+
 test('the world scrolls and obstacles move toward the runner', () => {
     const game = createGame();
     game.runFrame(0);
@@ -171,6 +181,7 @@ test('the world scrolls and obstacles move toward the runner', () => {
     assert.ok(obstaclePosition(game.obstacles[0]) < 420);
     assert.equal(game.runner.style.top, '106px');
     assert.equal(game.status.textContent, 'Springe über die Hindernisse!');
+    assert.equal(game.score.textContent, '0');
 });
 
 test('obstacles start with varied gaps', () => {
@@ -244,6 +255,7 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
     game.runFrame(0);
     advance(game, 1650);
     assert.ok(obstaclePosition(game.obstacles[0]) < 140);
+    assert.equal(game.score.textContent, '0');
     game.document.dispatch('keydown', { key: 'ArrowUp', target: new Element() });
     game.document.dispatch('keyup', { key: 'ArrowUp' });
     advance(game, 900, 25);
@@ -253,6 +265,33 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
     assert.ok(obstaclePosition(game.obstacles[0]) > game.stage.width);
     assert.ok(obstaclePosition(game.obstacles[0]) > obstaclePosition(game.obstacles[2]));
     assert.ok(obstaclePosition(game.obstacles[0]) - obstaclePosition(game.obstacles[2]) > initialGap);
+    assert.equal(game.score.textContent, '1');
+    advance(game, 100, 25);
+    assert.equal(game.score.textContent, '1');
+    advance(game, 3000, 25);
+    assert.ok(game.status.textContent.startsWith('Autsch!'));
+    assert.equal(game.score.textContent, '1');
+});
+
+test('moving back and forth over the same obstacle does not score twice', () => {
+    const game = createGame();
+    game.runFrame(0);
+    advance(game, 1500, 25);
+    game.document.dispatch('keydown', { key: ' ', target: new Element() });
+    game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
+    while (game.score.textContent === '0' && game.currentTime < 2000) {
+        game.runFrame(game.currentTime + 1);
+    }
+    assert.equal(game.score.textContent, '1');
+    game.document.dispatch('keyup', { key: 'ArrowRight' });
+    game.document.dispatch('keydown', { key: 'ArrowLeft', target: new Element() });
+    advance(game, 150, 25);
+    assert.ok(obstaclePosition(game.obstacles[0]) + 28 > Number.parseFloat(game.runner.style.left));
+    game.document.dispatch('keyup', { key: 'ArrowLeft' });
+    game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
+    advance(game, 100, 25);
+    assert.ok(obstaclePosition(game.obstacles[0]) + 28 <= Number.parseFloat(game.runner.style.left));
+    assert.equal(game.score.textContent, '1');
 });
 
 test('a missed jump causes a collision, stops the game, and restart resets it', () => {
@@ -263,6 +302,7 @@ test('a missed jump causes a collision, stops the game, and restart resets it', 
     }
     assert.equal(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
     assert.equal(game.frames.size, 0);
+    assert.equal(game.score.textContent, '0');
 
     game.restart.dispatch('click');
     assert.equal(game.status.textContent, 'Springe über die Hindernisse!');
@@ -270,6 +310,30 @@ test('a missed jump causes a collision, stops the game, and restart resets it', 
     assert.equal(game.runner.style.top, '106px');
     assert.equal(obstaclePosition(game.obstacles[0]), 440);
     assert.equal(game.frames.size, 1);
+    assert.equal(game.score.textContent, '0');
+});
+
+test('each cleared obstacle scores once, including recycled obstacles, and restart clears the score', () => {
+    const game = createGame({ randomValues: [0.5, 0.5, 0.5, 0.5] });
+    game.runFrame(0);
+    for (let frame = 0; frame < 600 && Number(game.score.textContent) < 4; frame += 1) {
+        const upcoming = game.obstacles.find(obstacle => {
+            const left = obstaclePosition(obstacle);
+            return left >= 105 && left <= 125;
+        });
+        if (upcoming) {
+            game.document.dispatch('keydown', { key: ' ', target: new Element() });
+        }
+        game.runFrame(game.currentTime + 25);
+    }
+    assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+    assert.equal(game.score.textContent, '4');
+
+    game.windowElement.dispatch('blur');
+    assert.equal(game.score.textContent, '4');
+    game.windowElement.dispatch('focus');
+    game.restart.dispatch('click');
+    assert.equal(game.score.textContent, '0');
 });
 
 test('the jump button works, but editable targets do not control the game', () => {

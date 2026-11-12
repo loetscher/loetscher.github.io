@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runner = document.getElementById('runner');
     const ground = stage.querySelector('.ground');
     const status = document.getElementById('movement-status');
+    const scoreDisplay = document.getElementById('score');
     const movementButtons = Array.from(document.querySelectorAll('[data-direction]'));
     const obstacleElements = Array.from(document.querySelectorAll('[data-obstacle]'));
     const restartButton = document.getElementById('restart-game');
@@ -26,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let worldSpeed = initialWorldSpeed;
     let worldOffset = 0;
     let obstaclePositions = [];
+    let scoredObstacles = new Set();
+    let score = 0;
     let previousTimestamp = null;
     let animationFrame = null;
     let gameOver = false;
@@ -165,18 +168,29 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPosition();
         }
 
-        obstaclePositions = obstaclePositions.map(worldPosition => {
+        if (checkCollision()) {
+            renderObstacles();
+            finishGame();
+            return false;
+        }
+
+        obstaclePositions.forEach((worldPosition, index) => {
+            if (!scoredObstacles.has(index) && worldPosition - worldOffset + obstacleWidth <= position) {
+                scoredObstacles.add(index);
+                score += 1;
+                scoreDisplay.textContent = String(score);
+            }
+        });
+
+        obstaclePositions = obstaclePositions.map((worldPosition, index) => {
             if (worldPosition - worldOffset < -obstacleWidth) {
+                scoredObstacles.delete(index);
                 return Math.max(...obstaclePositions) + nextObstacleGap();
             }
             return worldPosition;
         });
         renderObstacles();
 
-        if (checkCollision()) {
-            finishGame();
-            return false;
-        }
         return true;
     }
 
@@ -250,6 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
         worldSpeed = initialWorldSpeed;
         worldOffset = 0;
         obstaclePositions = initialObstaclePositions();
+        scoredObstacles = new Set();
+        score = 0;
+        scoreDisplay.textContent = String(score);
         renderPosition();
         renderObstacles();
         renderStatus();
