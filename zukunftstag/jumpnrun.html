@@ -6,7 +6,7 @@
     <meta name="description" content="Laufe mit deiner Figur über die JumpNRun-Strecke.">
     <title>JumpNRun | Zukunftstag</title>
     <link rel="stylesheet" href="game-navigation.css">
-    <script src="jumpnrun_abcd.js?v=obstacles-2" defer></script>
+    <script src="jumpnrun_abcd.js?v=obstacles-points-3" defer></script>
     <style>
         :root {
             color-scheme: light;
@@ -211,14 +211,14 @@
         </nav>
         <p class="eyebrow">Zukunftstag</p>
         <h1>JumpNRun</h1>
-        <p class="instructions">Die Strecke wird immer schneller und die Hindernisse kommen in wechselnden Abständen. Springe mit Leertaste, Pfeil nach oben oder W darüber. Links und rechts bewegst du die Figur.</p>
+        <p class="instructions">Die Strecke wird immer schneller, die Hindernisse kommen in wechselnder Reihenfolge und mit unterschiedlichen Abständen. Kleine Hindernisse geben 1 Punkt, große 2 Punkte. Springe mit Leertaste, Pfeil nach oben oder W darüber. Links und rechts bewegst du die Figur.</p>
         <div id="runner-stage" class="runner-stage" role="group" aria-label="Laufstrecke">
             <div class="ground" aria-hidden="true"></div>
-            <div class="obstacle obstacle--rock" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle obstacle--cactus" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle obstacle--stump" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle obstacle--tall-cactus" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle obstacle--tree" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--rock" data-obstacle data-points="1" aria-hidden="true"></div>
+            <div class="obstacle obstacle--cactus" data-obstacle data-points="1" aria-hidden="true"></div>
+            <div class="obstacle obstacle--stump" data-obstacle data-points="1" aria-hidden="true"></div>
+            <div class="obstacle obstacle--tall-cactus" data-obstacle data-points="2" aria-hidden="true"></div>
+            <div class="obstacle obstacle--tree" data-obstacle data-points="2" aria-hidden="true"></div>
             <div id="runner" class="runner" aria-hidden="true"><span>🐢</span></div>
         </div>
         <p id="movement-status" class="movement-status" role="status" aria-live="polite">Springe über die Hindernisse!</p>

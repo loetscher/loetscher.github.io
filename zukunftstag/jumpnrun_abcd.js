@@ -86,6 +86,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return worldSpeed * (1.1 + Math.random() * 0.8);
     }
 
+    function shuffleObstacles() {
+        for (let index = obstacleElements.length - 1; index > 0; index -= 1) {
+            const swapIndex = Math.floor(Math.random() * (index + 1));
+            [obstacleElements[index], obstacleElements[swapIndex]] = [obstacleElements[swapIndex], obstacleElements[index]];
+        }
+    }
+
+    function swapWithUpcomingObstacle(index) {
+        const upcomingIndices = obstaclePositions
+            .map((worldPosition, obstacleIndex) => ({ worldPosition, obstacleIndex }))
+            .filter(({ worldPosition, obstacleIndex }) => obstacleIndex !== index
+                && worldPosition - worldOffset >= stageWidth())
+            .map(({ obstacleIndex }) => obstacleIndex);
+        if (upcomingIndices.length === 0) {
+            return;
+        }
+
+        const swapIndex = upcomingIndices[Math.floor(Math.random() * upcomingIndices.length)];
+        [obstacleElements[index], obstacleElements[swapIndex]] = [obstacleElements[swapIndex], obstacleElements[index]];
+    }
+
+    function obstaclePoints(index) {
+        return Number(obstacleElements[index].dataset.points) || 1;
+    }
+
     function initialObstaclePositions() {
         let nextPosition = stageWidth() + 120;
         return obstacleElements.map((obstacle, index) => {
@@ -189,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!scoredObstacles.has(index)
                 && worldPosition - worldOffset + obstacleWidth(index) <= position) {
                 scoredObstacles.add(index);
-                score += 1;
+                score += obstaclePoints(index);
                 scoreDisplay.textContent = String(score);
             }
         });
@@ -197,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         obstaclePositions = obstaclePositions.map((worldPosition, index) => {
             if (worldPosition - worldOffset < -obstacleWidth(index)) {
                 scoredObstacles.delete(index);
+                swapWithUpcomingObstacle(index);
                 return Math.max(...obstaclePositions) + nextObstacleGap();
             }
             return worldPosition;
@@ -275,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verticalVelocity = 0;
         worldSpeed = initialWorldSpeed;
         worldOffset = 0;
+        shuffleObstacles();
         obstaclePositions = initialObstaclePositions();
         scoredObstacles = new Set();
         score = 0;

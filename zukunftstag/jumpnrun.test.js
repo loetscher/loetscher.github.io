@@ -66,7 +66,9 @@ function createGame({
     runnerHeight = 56,
     obstacleWidths = [28, 28, 28, 28, 36],
     obstacleHeights = [34, 34, 34, 52, 68],
-    randomValues = [0.25, 0.75, 0.4, 0.6]
+    obstaclePoints = [1, 1, 1, 2, 2],
+    obstacleTypes = ['rock', 'cactus', 'stump', 'tall-cactus', 'tree'],
+    randomValues = [0.99, 0.99, 0.99, 0.99, 0.25, 0.75, 0.4, 0.6]
 } = {}) {
     const stage = new Element({ width: stageWidth, height: stageHeight });
     const ground = new Element();
@@ -81,7 +83,11 @@ function createGame({
     ];
     const obstacles = obstacleWidths.map((width, index) => new Element({
         width,
-        height: obstacleHeights[index]
+        height: obstacleHeights[index],
+        dataset: {
+            points: String(obstaclePoints[index]),
+            type: obstacleTypes[index]
+        }
     }));
     obstacles.forEach(obstacle => {
         obstacle.dataset.obstacle = '';
@@ -181,11 +187,11 @@ test('the game page provides the score display expected by the game script', () 
 });
 
 test('the game page provides visually different obstacle types', () => {
-    assert.match(page, /class="obstacle obstacle--rock" data-obstacle/);
-    assert.match(page, /class="obstacle obstacle--cactus" data-obstacle/);
-    assert.match(page, /class="obstacle obstacle--stump" data-obstacle/);
-    assert.match(page, /class="obstacle obstacle--tall-cactus" data-obstacle/);
-    assert.match(page, /class="obstacle obstacle--tree" data-obstacle/);
+    assert.match(page, /class="obstacle obstacle--rock" data-obstacle data-points="1"/);
+    assert.match(page, /class="obstacle obstacle--cactus" data-obstacle data-points="1"/);
+    assert.match(page, /class="obstacle obstacle--stump" data-obstacle data-points="1"/);
+    assert.match(page, /class="obstacle obstacle--tall-cactus" data-obstacle data-points="2"/);
+    assert.match(page, /class="obstacle obstacle--tree" data-obstacle data-points="2"/);
     assert.match(page, /\.obstacle--tall-cactus\s*\{\s*height:\s*3\.25rem;/);
     assert.match(page, /\.obstacle--tree\s*\{\s*width:\s*2\.25rem;\s*height:\s*3\.75rem;/);
 });
@@ -202,11 +208,23 @@ test('the world scrolls and obstacles move toward the runner', () => {
 });
 
 test('obstacles start with varied gaps', () => {
-    const game = createGame({ randomValues: [0, 0.75] });
+    const game = createGame({ randomValues: [0.99, 0.99, 0.99, 0.99, 0, 0.75, 0.4, 0.6] });
     const positions = game.obstacles.map(obstaclePosition);
 
-    assert.deepEqual(positions, [440, 660, 1000, 1300, 1600]);
+    assert.deepEqual(positions, [440, 660, 1000, 1284, 1600]);
     assert.notEqual(positions[1] - positions[0], positions[2] - positions[1]);
+});
+
+test('obstacle order is shuffled at the start of a game', () => {
+    const defaultOrder = createGame();
+    const shuffledOrder = createGame({ randomValues: [0, 0, 0, 0] });
+    const pointsByPosition = game => game.obstacles
+        .slice()
+        .sort((first, second) => obstaclePosition(first) - obstaclePosition(second))
+        .map(obstacle => Number(obstacle.dataset.points));
+
+    assert.deepEqual(pointsByPosition(defaultOrder), [1, 1, 1, 2, 2]);
+    assert.deepEqual(pointsByPosition(shuffledOrder), [1, 1, 2, 2, 1]);
 });
 
 test('world speed stays consistent at different animation frame rates', () => {
@@ -267,8 +285,13 @@ test('left and right controls move the runner, while jump keys launch an arc', (
 });
 
 test('a jump clears a passing obstacle and the runner lands again', () => {
-    const game = createGame({ randomValues: [0, 0, 0] });
-    const initialGap = obstaclePosition(game.obstacles[1]) - obstaclePosition(game.obstacles[0]);
+    const game = createGame({ randomValues: [0.99, 0.99, 0.99, 0.99, 0, 0, 0] });
+    const initialPositions = game.obstacles.map(obstaclePosition).sort((first, second) => first - second);
+    const initialGap = initialPositions[1] - initialPositions[0];
+    const initialOrder = game.obstacles
+        .slice()
+        .sort((first, second) => obstaclePosition(first) - obstaclePosition(second))
+        .map(obstacle => obstacle.dataset.type);
     game.runFrame(0);
     advance(game, 1650);
     assert.ok(obstaclePosition(game.obstacles[0]) < 140);
@@ -279,9 +302,14 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
 
     assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
     assert.equal(game.runner.style.top, '106px');
-    assert.ok(obstaclePosition(game.obstacles[0]) > game.stage.width);
-    assert.ok(obstaclePosition(game.obstacles[0]) > obstaclePosition(game.obstacles[2]));
-    assert.ok(obstaclePosition(game.obstacles[0]) - obstaclePosition(game.obstacles[2]) > initialGap);
+    const recycledPositions = game.obstacles.map(obstaclePosition).sort((first, second) => first - second);
+    const recycledOrder = game.obstacles
+        .slice()
+        .sort((first, second) => obstaclePosition(first) - obstaclePosition(second))
+        .map(obstacle => obstacle.dataset.type);
+    assert.ok(recycledPositions.at(-1) > game.stage.width);
+    assert.ok(recycledPositions.at(-1) - recycledPositions.at(-2) > initialGap);
+    assert.notDeepEqual(recycledOrder, initialOrder);
     assert.equal(game.score.textContent, '1');
     advance(game, 100, 25);
     assert.equal(game.score.textContent, '1');
@@ -293,7 +321,7 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
 test('a jump clears the highest obstacle when started early enough', () => {
     const game = createGame({
         obstacleHeights: [60, 34, 34, 52, 60],
-        randomValues: [0, 0, 0, 0]
+        randomValues: [0.99, 0.99, 0.99, 0.99, 0, 0, 0, 0]
     });
     game.runFrame(0);
     advance(game, 1450, 25);
@@ -307,6 +335,27 @@ test('a jump clears the highest obstacle when started early enough', () => {
 
     assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
     assert.equal(game.score.textContent, '1');
+});
+
+test('both large obstacle types award two points', () => {
+    [
+        { width: 28, height: 52, type: 'tall-cactus' },
+        { width: 36, height: 68, type: 'tree' }
+    ].forEach(({ width, height, type }) => {
+        const game = createGame({
+            obstacleWidths: [width],
+            obstacleHeights: [height],
+            obstaclePoints: [2],
+            obstacleTypes: [type]
+        });
+        game.runFrame(0);
+        advance(game, 1450, 25);
+        game.document.dispatch('keydown', { key: ' ', target: new Element() });
+        advance(game, 900, 25);
+
+        assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+        assert.equal(game.score.textContent, '2');
+    });
 });
 
 test('a high obstacle collides during a jump that clears a low obstacle', () => {
@@ -324,7 +373,7 @@ test('a high obstacle collides during a jump that clears a low obstacle', () => 
 });
 
 test('a touch jump scores when the obstacle is cleared', () => {
-    const game = createGame({ randomValues: [0, 0, 0] });
+    const game = createGame({ randomValues: [0.99, 0.99, 0.99, 0.99, 0, 0, 0] });
     const jumpButton = game.buttons.find(button => button.dataset.direction === 'up');
     game.runFrame(0);
     advance(game, 1650, 25);
@@ -379,7 +428,7 @@ test('a missed jump causes a collision, stops the game, and restart resets it', 
 });
 
 test('each cleared obstacle scores once, including recycled obstacles, and restart clears the score', () => {
-    const game = createGame({ randomValues: [0.5, 0.5, 0.5, 0.5] });
+    const game = createGame({ randomValues: [0.99, 0.99, 0.99, 0.99, 0.5, 0.5, 0.5, 0.5] });
     game.runFrame(0);
     for (let frame = 0; frame < 600 && Number(game.score.textContent) < 4; frame += 1) {
         const upcoming = game.obstacles.find(obstacle => {
@@ -392,7 +441,7 @@ test('each cleared obstacle scores once, including recycled obstacles, and resta
         game.runFrame(game.currentTime + 25);
     }
     assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
-    assert.equal(game.score.textContent, '4');
+    assert.ok(Number(game.score.textContent) >= 4);
 
     game.windowElement.dispatch('blur');
     assert.equal(game.score.textContent, '4');
