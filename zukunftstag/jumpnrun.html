@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JumpNRun-Spiel – in Vorbereitung.">
+    <title>JumpNRun | Zukunftstag</title>
+    <link rel="stylesheet" href="game-navigation.css">
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #172554;
+            background: #eff6ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 1.5rem;
+            background: radial-gradient(circle at top, #dbeafe, #eff6ff 55%);
+        }
+
+        .game-card {
+            width: min(100%, 28rem);
+            padding: clamp(1.5rem, 6vw, 2.5rem);
+            text-align: center;
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-radius: 1.5rem;
+            box-shadow: 0 1.5rem 4rem rgb(30 64 175 / 12%);
+        }
+
+        .eyebrow {
+            margin: 0 0 0.5rem;
+            color: #2563eb;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 8vw, 2.75rem);
+        }
+
+        .instructions {
+            margin: 0.75rem 0 0;
+            color: #64748b;
+        }
+
+        .preparation-status {
+            margin: 1.5rem 0 0;
+            border-radius: 1rem;
+            padding: 1rem;
+            background: #eff6ff;
+            color: #1e40af;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <main class="game-card">
+        <nav class="game-picker" aria-label="Spiel auswählen">
+            <a href="index.html">Tic-Tac-Toe</a>
+            <a class="is-current" href="jumpnrun.html" aria-current="page">JumpNRun</a>
+        </nav>
+        <p class="eyebrow">Zukunftstag</p>
+        <h1>JumpNRun</h1>
+        <p class="instructions">Hier entsteht ein neues Spiel.</p>
+        <p class="preparation-status" role="status">JumpNRun ist noch in Vorbereitung und noch nicht spielbar.</p>
+    </main>
+</body>
+</html>

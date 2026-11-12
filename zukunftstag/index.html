@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Spiele Tic-Tac-Toe zu zweit oder gegen den Computer.">
     <title>Tic-Tac-Toe | Zukunftstag</title>
+    <link rel="stylesheet" href="game-navigation.css">
     <style>
         :root {
             color-scheme: light;
@@ -178,6 +179,10 @@
 </head>
 <body>
     <main class="game-card">
+        <nav class="game-picker" aria-label="Spiel auswählen">
+            <a class="is-current" href="index.html" aria-current="page">Tic-Tac-Toe</a>
+            <a href="jumpnrun.html">JumpNRun</a>
+        </nav>
         <p class="eyebrow">Zukunftstag</p>
         <h1>Tic-Tac-Toe</h1>
         <p class="instructions">Wähle einen Spielmodus und tritt gegen einen Freund oder den Computer an. Der Startspieler wechselt bei jedem neuen Spiel.</p>
