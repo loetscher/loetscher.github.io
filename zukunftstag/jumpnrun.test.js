@@ -64,6 +64,8 @@ function createGame({
     stageHeight = 192,
     runnerWidth = 48,
     runnerHeight = 56,
+    obstacleWidths = [28, 28, 28, 28, 36],
+    obstacleHeights = [34, 34, 34, 52, 68],
     randomValues = [0.25, 0.75, 0.4, 0.6]
 } = {}) {
     const stage = new Element({ width: stageWidth, height: stageHeight });
@@ -77,7 +79,10 @@ function createGame({
         new Element({ dataset: { direction: 'up' } }),
         new Element({ dataset: { direction: 'right' } })
     ];
-    const obstacles = [new Element({ width: 28 }), new Element({ width: 28 }), new Element({ width: 28 })];
+    const obstacles = obstacleWidths.map((width, index) => new Element({
+        width,
+        height: obstacleHeights[index]
+    }));
     obstacles.forEach(obstacle => {
         obstacle.dataset.obstacle = '';
     });
@@ -175,6 +180,16 @@ test('the game page provides the score display expected by the game script', () 
     assert.match(page, /<span id="score">0<\/span>/);
 });
 
+test('the game page provides visually different obstacle types', () => {
+    assert.match(page, /class="obstacle obstacle--rock" data-obstacle/);
+    assert.match(page, /class="obstacle obstacle--cactus" data-obstacle/);
+    assert.match(page, /class="obstacle obstacle--stump" data-obstacle/);
+    assert.match(page, /class="obstacle obstacle--tall-cactus" data-obstacle/);
+    assert.match(page, /class="obstacle obstacle--tree" data-obstacle/);
+    assert.match(page, /\.obstacle--tall-cactus\s*\{\s*height:\s*3\.25rem;/);
+    assert.match(page, /\.obstacle--tree\s*\{\s*width:\s*2\.25rem;\s*height:\s*3\.75rem;/);
+});
+
 test('the world scrolls and obstacles move toward the runner', () => {
     const game = createGame();
     game.runFrame(0);
@@ -190,7 +205,7 @@ test('obstacles start with varied gaps', () => {
     const game = createGame({ randomValues: [0, 0.75] });
     const positions = game.obstacles.map(obstaclePosition);
 
-    assert.deepEqual(positions, [440, 660, 1000]);
+    assert.deepEqual(positions, [440, 660, 1000, 1300, 1600]);
     assert.notEqual(positions[1] - positions[0], positions[2] - positions[1]);
 });
 
@@ -273,6 +288,39 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
     advance(game, 3000, 25);
     assert.ok(game.status.textContent.startsWith('Autsch!'));
     assert.equal(game.score.textContent, '1');
+});
+
+test('a jump clears the highest obstacle when started early enough', () => {
+    const game = createGame({
+        obstacleHeights: [60, 34, 34, 52, 60],
+        randomValues: [0, 0, 0, 0]
+    });
+    game.runFrame(0);
+    advance(game, 1450, 25);
+    assert.ok(obstaclePosition(game.obstacles[0]) > 135);
+    assert.ok(obstaclePosition(game.obstacles[0]) < 140);
+
+    game.document.dispatch('keydown', { key: ' ', target: new Element() });
+    advance(game, 400, 25);
+    assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+    advance(game, 500, 25);
+
+    assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
+    assert.equal(game.score.textContent, '1');
+});
+
+test('a high obstacle collides during a jump that clears a low obstacle', () => {
+    const tallObstacleGame = createGame({ obstacleHeights: [60, 34, 34, 52, 60] });
+    const lowObstacleGame = createGame({ obstacleHeights: [34, 34, 34, 52, 60] });
+    [tallObstacleGame, lowObstacleGame].forEach(game => {
+        game.runFrame(0);
+        advance(game, 1375, 25);
+        game.document.dispatch('keydown', { key: ' ', target: new Element() });
+        advance(game, 700, 25);
+    });
+
+    assert.ok(tallObstacleGame.status.textContent.startsWith('Autsch!'));
+    assert.notEqual(lowObstacleGame.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
 });
 
 test('a touch jump scores when the obstacle is cleared', () => {

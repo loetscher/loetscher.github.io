@@ -14,8 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const maximumWorldSpeed = 520;
     const gravity = 1300;
     const jumpVelocity = -500;
-    const obstacleWidth = 28;
-    const obstacleHeight = 34;
     const floorHeight = 6;
     const floorBottom = 24;
     const maximumFrameStep = 1 / 30;
@@ -48,6 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function maxPosition() {
         return Math.max(0, stageWidth() - runner.getBoundingClientRect().width);
+    }
+
+    function obstacleWidth(index) {
+        return obstacleElements[index].getBoundingClientRect().width;
+    }
+
+    function obstacleHeight(index) {
+        return obstacleElements[index].getBoundingClientRect().height;
+    }
+
+    function minimumObstacleWidth() {
+        return Math.min(...obstacleElements.map((obstacle, index) => obstacleWidth(index)));
     }
 
     function horizontalDirection() {
@@ -141,12 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkCollision() {
         const runnerRight = position + runner.getBoundingClientRect().width;
         const runnerBottom = verticalPosition + runner.getBoundingClientRect().height;
-        const obstacleTop = stageHeight() - floorBottom - obstacleHeight;
-
-        return obstaclePositions.some(worldPosition => {
+        return obstaclePositions.some((worldPosition, index) => {
             const obstacleLeft = worldPosition - worldOffset;
-            const overlapsHorizontally = runnerRight > obstacleLeft && position < obstacleLeft + obstacleWidth;
-            const overlapsVertically = runnerBottom > obstacleTop && verticalPosition < stageHeight() - floorBottom;
+            const obstacleTop = stageHeight() - floorBottom - floorHeight - obstacleHeight(index);
+            const obstacleRight = obstacleLeft + obstacleWidth(index);
+            const overlapsHorizontally = runnerRight > obstacleLeft && position < obstacleRight;
+            const overlapsVertically = runnerBottom > obstacleTop
+                && verticalPosition < stageHeight() - floorBottom - floorHeight;
             return overlapsHorizontally && overlapsVertically;
         });
     }
@@ -175,7 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         obstaclePositions.forEach((worldPosition, index) => {
-            if (!scoredObstacles.has(index) && worldPosition - worldOffset + obstacleWidth <= position) {
+            if (!scoredObstacles.has(index)
+                && worldPosition - worldOffset + obstacleWidth(index) <= position) {
                 scoredObstacles.add(index);
                 score += 1;
                 scoreDisplay.textContent = String(score);
@@ -183,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         obstaclePositions = obstaclePositions.map((worldPosition, index) => {
-            if (worldPosition - worldOffset < -obstacleWidth) {
+            if (worldPosition - worldOffset < -obstacleWidth(index)) {
                 scoredObstacles.delete(index);
                 return Math.max(...obstaclePositions) + nextObstacleGap();
             }
@@ -206,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previousTimestamp = timestamp;
         let remaining = elapsed;
         while (remaining > 0) {
-            const step = Math.min(maximumFrameStep, obstacleWidth / (worldSpeed * 2), remaining);
+            const step = Math.min(maximumFrameStep, minimumObstacleWidth() / (worldSpeed * 2), remaining);
             if (!updateWorld(step)) {
                 return;
             }

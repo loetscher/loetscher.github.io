@@ -6,7 +6,7 @@
     <meta name="description" content="Laufe mit deiner Figur über die JumpNRun-Strecke.">
     <title>JumpNRun | Zukunftstag</title>
     <link rel="stylesheet" href="game-navigation.css">
-    <script src="jumpnrun_abcd.js?v=score-1" defer></script>
+    <script src="jumpnrun_abcd.js?v=obstacles-2" defer></script>
     <style>
         :root {
             color-scheme: light;
@@ -85,6 +85,39 @@
             border: 2px solid #92400e;
             border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
             background: repeating-linear-gradient(135deg, #f97316 0 0.45rem, #fed7aa 0.45rem 0.9rem);
+        }
+
+        .obstacle--rock {
+            border-color: #475569;
+            border-radius: 0.65rem 0.4rem 0.2rem 0.2rem;
+            background: linear-gradient(145deg, #cbd5e1, #64748b 70%);
+        }
+
+        .obstacle--cactus {
+            border-color: #166534;
+            border-radius: 0.45rem;
+            background: repeating-linear-gradient(90deg, #15803d 0 0.35rem, #4ade80 0.35rem 0.5rem);
+        }
+
+        .obstacle--stump {
+            border-color: #78350f;
+            border-radius: 0.15rem 0.15rem 0.35rem 0.35rem;
+            background: linear-gradient(90deg, #92400e, #d97706 45%, #92400e);
+        }
+
+        .obstacle--tall-cactus {
+            height: 3.25rem;
+            border-color: #166534;
+            border-radius: 0.45rem 0.45rem 0.15rem 0.15rem;
+            background: repeating-linear-gradient(90deg, #15803d 0 0.35rem, #4ade80 0.35rem 0.5rem);
+        }
+
+        .obstacle--tree {
+            width: 2.25rem;
+            height: 3.75rem;
+            border-color: #166534;
+            border-radius: 50% 50% 0.2rem 0.2rem;
+            background: radial-gradient(ellipse at 50% 25%, #86efac 0 20%, #15803d 21% 100%);
         }
 
         .score {
@@ -181,9 +214,11 @@
         <p class="instructions">Die Strecke wird immer schneller und die Hindernisse kommen in wechselnden Abständen. Springe mit Leertaste, Pfeil nach oben oder W darüber. Links und rechts bewegst du die Figur.</p>
         <div id="runner-stage" class="runner-stage" role="group" aria-label="Laufstrecke">
             <div class="ground" aria-hidden="true"></div>
-            <div class="obstacle" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle" data-obstacle aria-hidden="true"></div>
-            <div class="obstacle" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--rock" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--cactus" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--stump" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--tall-cactus" data-obstacle aria-hidden="true"></div>
+            <div class="obstacle obstacle--tree" data-obstacle aria-hidden="true"></div>
             <div id="runner" class="runner" aria-hidden="true"><span>🐢</span></div>
         </div>
         <p id="movement-status" class="movement-status" role="status" aria-live="polite">Springe über die Hindernisse!</p>
