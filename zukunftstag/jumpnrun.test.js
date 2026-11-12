@@ -55,7 +55,13 @@ class Element {
     }
 }
 
-function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 48, runnerHeight = 56 } = {}) {
+function createGame({
+    stageWidth = 320,
+    stageHeight = 192,
+    runnerWidth = 48,
+    runnerHeight = 56,
+    randomValues = [0.25, 0.75, 0.4, 0.6]
+} = {}) {
     const stage = new Element({ width: stageWidth, height: stageHeight });
     const ground = new Element();
     stage.querySelector = selector => selector === '.ground' ? ground : null;
@@ -81,6 +87,8 @@ function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 48, run
     const windowElement = new Element();
     let nextFrameId = 1;
     const frames = new Map();
+    const gameMath = Object.create(Math);
+    gameMath.random = () => randomValues.length > 0 ? randomValues.shift() : 0.5;
 
     const document = {
         hidden: false,
@@ -112,6 +120,7 @@ function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 48, run
 
     vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun.js', 'utf8'), {
         document,
+        Math: gameMath,
         window: windowElement,
         requestAnimationFrame: callback => {
             const frameId = nextFrameId++;
@@ -158,9 +167,18 @@ test('the world scrolls and obstacles move toward the runner', () => {
     const game = createGame();
     game.runFrame(0);
     game.runFrame(100);
-    assert.equal(obstaclePosition(game.obstacles[0]), 420);
+    assert.ok(obstaclePosition(game.obstacles[0]) > 419.8);
+    assert.ok(obstaclePosition(game.obstacles[0]) < 420);
     assert.equal(game.runner.style.top, '106px');
-    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
+    assert.equal(game.status.textContent, 'Springe über die Hindernisse!');
+});
+
+test('obstacles start with varied gaps', () => {
+    const game = createGame({ randomValues: [0, 0.75] });
+    const positions = game.obstacles.map(obstaclePosition);
+
+    assert.deepEqual(positions, [440, 660, 1000]);
+    assert.notEqual(positions[1] - positions[0], positions[2] - positions[1]);
 });
 
 test('world speed stays consistent at different animation frame rates', () => {
@@ -172,7 +190,35 @@ test('world speed stays consistent at different animation frame rates', () => {
     advance(gameAt60Fps, 1000, 1000 / 60);
 
     assert.ok(Math.abs(obstaclePosition(gameAt30Fps.obstacles[0]) - obstaclePosition(gameAt60Fps.obstacles[0])) < 0.001);
-    assert.ok(Math.abs(obstaclePosition(gameAt60Fps.obstacles[0]) - 240) < 0.001);
+    assert.ok(Math.abs(obstaclePosition(gameAt60Fps.obstacles[0]) - 234) < 0.2);
+});
+
+test('world speed increases over time, pauses do not advance it, and restart resets it', () => {
+    const game = createGame({ stageWidth: 5000 });
+    game.runFrame(0);
+    advance(game, 1000, 1000 / 60);
+    const positionAfterOneSecond = obstaclePosition(game.obstacles[0]);
+    advance(game, 500, 1000 / 60);
+    const positionAfterSecondHalf = obstaclePosition(game.obstacles[0]);
+    const distanceFirstSecond = 5120 - positionAfterOneSecond;
+    const distanceSecondHalf = positionAfterOneSecond - positionAfterSecondHalf;
+
+    assert.ok(distanceSecondHalf > distanceFirstSecond / 2);
+
+    const positionBeforePause = obstaclePosition(game.obstacles[0]);
+    game.windowElement.dispatch('blur');
+    game.windowElement.dispatch('focus');
+    game.runFrame(game.currentTime + 5000);
+    assert.equal(obstaclePosition(game.obstacles[0]), positionBeforePause);
+
+    game.restart.dispatch('click');
+    game.runFrame(game.currentTime);
+    advance(game, 1000, 1000 / 60);
+
+    const freshGame = createGame({ stageWidth: 5000 });
+    freshGame.runFrame(0);
+    advance(freshGame, 1000, 1000 / 60);
+    assert.ok(Math.abs(obstaclePosition(game.obstacles[0]) - obstaclePosition(freshGame.obstacles[0])) < 0.001);
 });
 
 test('left and right controls move the runner, while jump keys launch an arc', () => {
@@ -193,7 +239,8 @@ test('left and right controls move the runner, while jump keys launch an arc', (
 });
 
 test('a jump clears a passing obstacle and the runner lands again', () => {
-    const game = createGame();
+    const game = createGame({ randomValues: [0, 0, 0] });
+    const initialGap = obstaclePosition(game.obstacles[1]) - obstaclePosition(game.obstacles[0]);
     game.runFrame(0);
     advance(game, 1650);
     assert.ok(obstaclePosition(game.obstacles[0]) < 140);
@@ -204,6 +251,8 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
     assert.notEqual(game.status.textContent, 'Autsch! Du bist gegen ein Hindernis gelaufen. Drücke „Neustart“.');
     assert.equal(game.runner.style.top, '106px');
     assert.ok(obstaclePosition(game.obstacles[0]) > game.stage.width);
+    assert.ok(obstaclePosition(game.obstacles[0]) > obstaclePosition(game.obstacles[2]));
+    assert.ok(obstaclePosition(game.obstacles[0]) - obstaclePosition(game.obstacles[2]) > initialGap);
 });
 
 test('a missed jump causes a collision, stops the game, and restart resets it', () => {
@@ -216,7 +265,7 @@ test('a missed jump causes a collision, stops the game, and restart resets it', 
     assert.equal(game.frames.size, 0);
 
     game.restart.dispatch('click');
-    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
+    assert.equal(game.status.textContent, 'Springe über die Hindernisse!');
     assert.equal(game.runner.style.left, '32px');
     assert.equal(game.runner.style.top, '106px');
     assert.equal(obstaclePosition(game.obstacles[0]), 440);
@@ -261,7 +310,7 @@ test('the runner stays in the stage, clamps after resizing, and pauses on focus 
     assert.equal(game.frames.size, 0);
     game.windowElement.dispatch('focus');
     assert.equal(game.frames.size, 1);
-    assert.equal(game.status.textContent, 'Die Strecke läuft. Springe über die Hindernisse!');
+    assert.equal(game.status.textContent, 'Springe über die Hindernisse!');
 
     game.document.hidden = true;
     game.document.dispatch('visibilitychange');

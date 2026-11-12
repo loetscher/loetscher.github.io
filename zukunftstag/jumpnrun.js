@@ -8,19 +8,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const restartButton = document.getElementById('restart-game');
     const activeSources = new Map();
     const horizontalSpeed = 240;
-    const worldSpeed = 200;
+    const initialWorldSpeed = 200;
+    const worldAcceleration = 12;
+    const maximumWorldSpeed = 520;
     const gravity = 1300;
     const jumpVelocity = -500;
     const obstacleWidth = 28;
     const obstacleHeight = 34;
     const floorHeight = 6;
     const floorBottom = 24;
-    const frameStep = 1 / 60;
-    const baseStatus = 'Die Strecke läuft. Springe über die Hindernisse!';
+    const maximumFrameStep = 1 / 30;
+    const baseStatus = 'Springe über die Hindernisse!';
 
     let position = 32;
     let verticalPosition = 0;
     let verticalVelocity = 0;
+    let worldSpeed = initialWorldSpeed;
     let worldOffset = 0;
     let obstaclePositions = [];
     let previousTimestamp = null;
@@ -64,6 +67,20 @@ document.addEventListener('DOMContentLoaded', () => {
             obstacleElements[index].style.left = `${worldPosition - worldOffset}px`;
         });
         ground.style.backgroundPositionX = `${-(worldOffset % 38.4)}px`;
+    }
+
+    function nextObstacleGap() {
+        return worldSpeed * (1.1 + Math.random() * 0.8);
+    }
+
+    function initialObstaclePositions() {
+        let nextPosition = stageWidth() + 120;
+        return obstacleElements.map((obstacle, index) => {
+            if (index > 0) {
+                nextPosition += nextObstacleGap();
+            }
+            return nextPosition;
+        });
     }
 
     function renderStatus() {
@@ -132,7 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateWorld(step) {
-        worldOffset += worldSpeed * step;
+        const nextWorldSpeed = Math.min(maximumWorldSpeed, worldSpeed + worldAcceleration * step);
+        worldOffset += (worldSpeed + nextWorldSpeed) * 0.5 * step;
+        worldSpeed = nextWorldSpeed;
         position += horizontalDirection() * horizontalSpeed * step;
         renderPosition();
 
@@ -148,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         obstaclePositions = obstaclePositions.map(worldPosition => {
             if (worldPosition - worldOffset < -obstacleWidth) {
-                return Math.max(...obstaclePositions) + 260;
+                return Math.max(...obstaclePositions) + nextObstacleGap();
             }
             return worldPosition;
         });
@@ -173,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previousTimestamp = timestamp;
         let remaining = elapsed;
         while (remaining > 0) {
-            const step = Math.min(frameStep, remaining);
+            const step = Math.min(maximumFrameStep, obstacleWidth / (worldSpeed * 2), remaining);
             if (!updateWorld(step)) {
                 return;
             }
@@ -228,8 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
         position = Math.min(32, maxPosition());
         verticalPosition = groundPosition();
         verticalVelocity = 0;
+        worldSpeed = initialWorldSpeed;
         worldOffset = 0;
-        obstaclePositions = obstacleElements.map((obstacle, index) => stageWidth() + 120 + index * 260);
+        obstaclePositions = initialObstaclePositions();
         renderPosition();
         renderObstacles();
         renderStatus();
