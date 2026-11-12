@@ -118,7 +118,7 @@ function createGame({
         querySelectorAll: selector => selector === '[data-obstacle]' ? obstacles : buttons
     };
 
-    vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun.js', 'utf8'), {
+    vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun_abc.js', 'utf8'), {
         document,
         Math: gameMath,
         window: windowElement,
