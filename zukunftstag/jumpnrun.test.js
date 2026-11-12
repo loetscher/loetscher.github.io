@@ -120,7 +120,7 @@ function createGame({
         querySelectorAll: selector => selector === '[data-obstacle]' ? obstacles : buttons
     };
 
-    vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun_abc.js', 'utf8'), {
+    vm.runInNewContext(fs.readFileSync('zukunftstag/jumpnrun_abcd.js', 'utf8'), {
         document,
         Math: gameMath,
         window: windowElement,
@@ -169,7 +169,7 @@ function obstaclePosition(obstacle) {
 test('the game page provides the score display expected by the game script', () => {
     const page = fs.readFileSync('zukunftstag/jumpnrun.html', 'utf8');
 
-    assert.match(page, /<script src="jumpnrun_abc\.js" defer><\/script>/);
+    assert.match(page, /<script src="jumpnrun_abc\.js\?v=[^"]+" defer><\/script>/);
     assert.match(page, /<span id="score">0<\/span>/);
 });
 
@@ -271,6 +271,21 @@ test('a jump clears a passing obstacle and the runner lands again', () => {
     advance(game, 3000, 25);
     assert.ok(game.status.textContent.startsWith('Autsch!'));
     assert.equal(game.score.textContent, '1');
+});
+
+test('a touch jump scores when the obstacle is cleared', () => {
+    const game = createGame({ randomValues: [0, 0, 0] });
+    const jumpButton = game.buttons.find(button => button.dataset.direction === 'up');
+    game.runFrame(0);
+    advance(game, 1650, 25);
+
+    jumpButton.dispatch('pointerdown', { pointerId: 7, pointerType: 'touch', button: 0 });
+    jumpButton.dispatch('pointerup', { pointerId: 7, pointerType: 'touch', button: 0 });
+    advance(game, 900, 25);
+
+    assert.equal(game.score.textContent, '1');
+    game.restart.dispatch('click');
+    assert.equal(game.score.textContent, '0');
 });
 
 test('moving back and forth over the same obstacle does not score twice', () => {
