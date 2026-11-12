@@ -78,23 +78,13 @@
 
         .runner {
             position: absolute;
-            bottom: 1.8rem;
+            top: 0;
             left: 0;
             width: 3rem;
             height: 3.5rem;
             font-size: 3rem;
             line-height: 1;
             user-select: none;
-        }
-
-        .runner.is-running {
-            animation: run-bob 180ms ease-in-out infinite alternate;
-        }
-
-        @keyframes run-bob {
-            to {
-                translate: 0 -0.2rem;
-            }
         }
 
         .movement-status {
@@ -105,15 +95,17 @@
         }
 
         .movement-controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 5rem));
+            grid-template-rows: repeat(2, 3.5rem);
             justify-content: center;
-            gap: 1rem;
+            gap: 0.5rem;
         }
 
         .movement-controls button {
-            min-width: 7rem;
+            min-width: 0;
             border: 0;
-            border-radius: 999px;
+            border-radius: 0.75rem;
             padding: 0.8rem 1rem;
             background: #1d4ed8;
             color: #fff;
@@ -122,6 +114,26 @@
             cursor: pointer;
             touch-action: none;
             user-select: none;
+        }
+
+        .movement-controls [data-direction="up"] {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .movement-controls [data-direction="left"] {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .movement-controls [data-direction="down"] {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .movement-controls [data-direction="right"] {
+            grid-column: 3;
+            grid-row: 2;
         }
 
         .movement-controls button:hover {
@@ -133,11 +145,6 @@
             outline-offset: 3px;
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            .runner.is-running {
-                animation: none;
-            }
-        }
     </style>
 </head>
 <body>
@@ -148,14 +155,16 @@
         </nav>
         <p class="eyebrow">Zukunftstag</p>
         <h1>JumpNRun</h1>
-        <p class="instructions">Laufe mit den Pfeiltasten oder A und D. Auf dem Handy kannst du die Richtungstasten gedrückt halten.</p>
+        <p class="instructions">Laufe mit den Pfeiltasten oder W, A, S und D. Auf dem Handy kannst du die Richtungstasten gedrückt halten.</p>
         <div id="runner-stage" class="runner-stage" role="group" aria-label="Laufstrecke">
             <div class="ground" aria-hidden="true"></div>
             <div id="runner" class="runner" aria-hidden="true">🏃</div>
         </div>
         <p id="movement-status" class="movement-status" role="status" aria-live="polite">Bereit zum Laufen.</p>
-        <div class="movement-controls" aria-label="Laufsteuerung">
+        <div class="movement-controls" role="group" aria-label="Bewegungssteuerung">
+            <button type="button" data-direction="up" aria-label="Nach oben laufen">↑</button>
             <button type="button" data-direction="left" aria-label="Nach links laufen">← Links</button>
+            <button type="button" data-direction="down" aria-label="Nach unten laufen">↓</button>
             <button type="button" data-direction="right" aria-label="Nach rechts laufen">Rechts →</button>
         </div>
     </main>

@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const speed = 240;
 
     let position = 0;
+    let verticalPosition = 0;
     let previousTimestamp = null;
     let animationFrame = null;
 
@@ -18,38 +19,61 @@ document.addEventListener('DOMContentLoaded', () => {
         if (normalizedKey === 'arrowright' || normalizedKey === 'd') {
             return 'right';
         }
+        if (normalizedKey === 'arrowup' || normalizedKey === 'w') {
+            return 'up';
+        }
+        if (normalizedKey === 'arrowdown' || normalizedKey === 's') {
+            return 'down';
+        }
         return null;
     }
 
-    function getDirection() {
-        const directions = new Set(activeSources.values());
-        if (directions.size !== 1) {
-            return 0;
-        }
-        return directions.has('right') ? 1 : -1;
+    function getMovementVector() {
+        let horizontal = 0;
+        let vertical = 0;
+        activeSources.forEach(direction => {
+            if (direction === 'left') {
+                horizontal -= 1;
+            } else if (direction === 'right') {
+                horizontal += 1;
+            } else if (direction === 'up') {
+                vertical -= 1;
+            } else if (direction === 'down') {
+                vertical += 1;
+            }
+        });
+        return { x: Math.sign(horizontal), y: Math.sign(vertical) };
     }
 
     function maxPosition() {
         return Math.max(0, stage.getBoundingClientRect().width - runner.getBoundingClientRect().width);
     }
 
+    function maxVerticalPosition() {
+        return Math.max(0, stage.getBoundingClientRect().height - runner.getBoundingClientRect().height);
+    }
+
     function renderPosition() {
         position = Math.max(0, Math.min(position, maxPosition()));
+        verticalPosition = Math.max(0, Math.min(verticalPosition, maxVerticalPosition()));
         runner.style.left = `${position}px`;
+        runner.style.top = `${verticalPosition}px`;
     }
 
     function renderMovementState() {
-        const direction = getDirection();
-        runner.classList.toggle('is-running', direction !== 0);
+        const { x, y } = getMovementVector();
+        if (x === 0 && y === 0) {
+            status.textContent = activeSources.size > 0 ? 'Steht still.' : 'Bereit zum Laufen.';
+            return;
+        }
 
-        if (direction < 0) {
-            status.textContent = 'Läuft nach links.';
-        } else if (direction > 0) {
-            status.textContent = 'Läuft nach rechts.';
-        } else if (activeSources.size > 0) {
-            status.textContent = 'Steht still.';
+        if (x !== 0 && y !== 0) {
+            const vertical = y < 0 ? 'oben' : 'unten';
+            const horizontal = x < 0 ? 'links' : 'rechts';
+            status.textContent = `Läuft diagonal nach ${vertical} ${horizontal}.`;
         } else {
-            status.textContent = 'Bereit zum Laufen.';
+            const direction = x < 0 ? 'links' : x > 0 ? 'rechts' : y < 0 ? 'oben' : 'unten';
+            status.textContent = `Läuft nach ${direction}.`;
         }
     }
 
@@ -66,10 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const direction = getDirection();
-        if (direction !== 0 && previousTimestamp !== null) {
+        const movement = getMovementVector();
+        if ((movement.x !== 0 || movement.y !== 0) && previousTimestamp !== null) {
             const elapsedSeconds = Math.max(0, (timestamp - previousTimestamp) / 1000);
-            position += direction * speed * elapsedSeconds;
+            const diagonalScale = movement.x !== 0 && movement.y !== 0 ? Math.SQRT1_2 : 1;
+            position += movement.x * speed * elapsedSeconds * diagonalScale;
+            verticalPosition += movement.y * speed * elapsedSeconds * diagonalScale;
             renderPosition();
         }
         previousTimestamp = timestamp;
@@ -159,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    verticalPosition = Math.max(0, maxVerticalPosition() - 28.8);
     renderPosition();
     renderMovementState();
 });

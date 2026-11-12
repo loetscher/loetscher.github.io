@@ -4,8 +4,9 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 class Element {
-    constructor({ width = 0, dataset = {}, tagName = '' } = {}) {
+    constructor({ width = 0, height = 0, dataset = {}, tagName = '' } = {}) {
         this.width = width;
+        this.height = height;
         this.dataset = dataset;
         this.tagName = tagName;
         this.style = {};
@@ -46,7 +47,7 @@ class Element {
     }
 
     getBoundingClientRect() {
-        return { width: this.width };
+        return { width: this.width, height: this.height };
     }
 
     setPointerCapture(pointerId) {
@@ -54,13 +55,15 @@ class Element {
     }
 }
 
-function createGame({ stageWidth = 320, runnerWidth = 40 } = {}) {
-    const stage = new Element({ width: stageWidth });
-    const runner = new Element({ width: runnerWidth });
+function createGame({ stageWidth = 320, stageHeight = 192, runnerWidth = 40, runnerHeight = 56 } = {}) {
+    const stage = new Element({ width: stageWidth, height: stageHeight });
+    const runner = new Element({ width: runnerWidth, height: runnerHeight });
     const status = new Element();
     const buttons = [
         new Element({ dataset: { direction: 'left' } }),
-        new Element({ dataset: { direction: 'right' } })
+        new Element({ dataset: { direction: 'right' } }),
+        new Element({ dataset: { direction: 'up' } }),
+        new Element({ dataset: { direction: 'down' } })
     ];
     const elements = {
         'runner-stage': stage,
@@ -144,14 +147,12 @@ test('keyboard movement is held, prevents scrolling, and stops on key release', 
     const press = game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
 
     assert.equal(press.defaultPrevented, true);
-    assert.equal(game.runner.classes.has('is-running'), true);
     game.runFrame(0);
     game.runFrame(100);
     assert.equal(game.runner.style.left, '24px');
 
     game.document.dispatch('keyup', { key: 'ArrowRight' });
     assert.equal(game.frames.size, 0);
-    assert.equal(game.runner.classes.has('is-running'), false);
     assert.equal(game.status.textContent, 'Bereit zum Laufen.');
 });
 
@@ -167,7 +168,7 @@ test('opposite simultaneous inputs cancel, then the remaining direction moves', 
     const game = createGame();
     game.document.dispatch('keydown', { key: 'a', target: new Element() });
     game.document.dispatch('keydown', { key: 'ArrowRight', target: new Element() });
-    assert.equal(game.runner.classes.has('is-running'), false);
+    assert.equal(game.status.textContent, 'Steht still.');
     game.runFrame(0);
     game.runFrame(100);
     assert.equal(game.runner.style.left, '0px');
@@ -175,6 +176,46 @@ test('opposite simultaneous inputs cancel, then the remaining direction moves', 
     game.document.dispatch('keyup', { key: 'a' });
     game.runFrame(200);
     assert.equal(game.runner.style.left, '24px');
+});
+
+test('up and down keys move vertically and clamp at both stage edges', () => {
+    const game = createGame();
+    game.document.dispatch('keydown', { key: 'w', target: new Element() });
+    game.runFrame(0);
+    game.runFrame(100);
+    assert.equal(Number.parseFloat(game.runner.style.top), 83.2);
+    assert.equal(game.status.textContent, 'Läuft nach oben.');
+
+    for (let timestamp = 200; timestamp <= 1200; timestamp += 100) {
+        game.runFrame(timestamp);
+    }
+    assert.equal(game.runner.style.top, '0px');
+
+    game.document.dispatch('keyup', { key: 'w' });
+    game.document.dispatch('keydown', { key: 'ArrowDown', target: new Element() });
+    for (let timestamp = 1300; timestamp <= 2300; timestamp += 100) {
+        game.runFrame(timestamp);
+    }
+    assert.equal(game.runner.style.top, '136px');
+    game.document.dispatch('keyup', { key: 'ArrowDown' });
+});
+
+test('diagonal movement is normalized and opposite vertical inputs cancel', () => {
+    const game = createGame();
+    game.document.dispatch('keydown', { key: 'd', target: new Element() });
+    game.document.dispatch('keydown', { key: 'w', target: new Element() });
+    game.runFrame(0);
+    game.runFrame(100);
+    assert.ok(Math.abs(Number.parseFloat(game.runner.style.left) - 16.9705627485) < 0.001);
+    assert.ok(Math.abs(Number.parseFloat(game.runner.style.top) - (107.2 - 16.9705627485)) < 0.001);
+    assert.equal(game.status.textContent, 'Läuft diagonal nach oben rechts.');
+
+    game.document.dispatch('keydown', { key: 's', target: new Element() });
+    const topBeforeVerticalCancellation = Number.parseFloat(game.runner.style.top);
+    game.runFrame(200);
+    assert.ok(Number.parseFloat(game.runner.style.left) > 16.97);
+    assert.equal(Number.parseFloat(game.runner.style.top), topBeforeVerticalCancellation);
+    assert.equal(game.status.textContent, 'Läuft nach rechts.');
 });
 
 test('movement stays inside the stage and is clamped after resizing', () => {
@@ -193,20 +234,23 @@ test('movement stays inside the stage and is clamped after resizing', () => {
     assert.equal(game.runner.style.left, '160px');
 
     game.stage.width = 80;
+    game.stage.height = 80;
     game.windowElement.dispatch('resize');
     assert.equal(game.runner.style.left, '40px');
+    assert.equal(game.runner.style.top, '24px');
 });
 
 test('direction buttons run while pressed and stop on pointer cancellation', () => {
     const game = createGame();
-    const down = game.buttons[1].dispatch('pointerdown', { pointerId: 7, button: 0 });
+    const downButton = game.buttons.find(button => button.dataset.direction === 'down');
+    const down = downButton.dispatch('pointerdown', { pointerId: 7, button: 0 });
     assert.equal(down.defaultPrevented, true);
-    assert.equal(game.buttons[1].capturedPointer, 7);
+    assert.equal(downButton.capturedPointer, 7);
     game.runFrame(0);
     game.runFrame(100);
-    assert.equal(game.runner.style.left, '24px');
+    assert.equal(game.runner.style.top, '131.2px');
 
-    game.buttons[1].dispatch('pointercancel', { pointerId: 7 });
+    downButton.dispatch('pointercancel', { pointerId: 7 });
     assert.equal(game.frames.size, 0);
     assert.equal(game.status.textContent, 'Bereit zum Laufen.');
 });
@@ -227,5 +271,5 @@ test('editable text targets are ignored and focus or page loss stops movement', 
     game.document.hidden = true;
     game.document.dispatch('visibilitychange');
     assert.equal(game.frames.size, 0);
-    assert.equal(game.runner.classes.has('is-running'), false);
+    assert.equal(game.status.textContent, 'Bereit zum Laufen.');
 });
